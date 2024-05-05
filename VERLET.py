@@ -157,7 +157,7 @@ while True:
 
             else: LMB_flag = False
 
-    if pygame.mouse.get_pressed()[2]:
+    if pygame.mouse.get_pressed()[2] and space_down:
         ball_list.append(Ball(mouse_x, mouse_y, keys[pygame.K_z]))
 
         for i in ball_list:
