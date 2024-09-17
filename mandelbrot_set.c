@@ -218,7 +218,7 @@ void fractal_mandelbrot() {
 
 
 
-// main
+// main()
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nCmdShow) {
     const wchar_t window_class_name[] = L"My Window Class";
     static WNDCLASS window_class = { 0 };
