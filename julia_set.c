@@ -7,6 +7,8 @@
 #define UNICODE
 #define _UNICODE
 
+#pragma GCC optimize("unroll-loops,Ofast")
+#pragma GCC target("avx2")
 
 
 
@@ -29,7 +31,9 @@ RECT rect;
 
 
 long long frame_count = 0;
+
 int start_time = 0;
+
 long double zoom_x = 2.0 / 700.0,
             zoom_y = 2.0 / 700.0,
             WtoH = 1.0,
@@ -53,7 +57,8 @@ float colors_r[127],
       colors_b[127];
 
 bool change = true, 
-     lmb_down = false;
+     lmb_down = false,
+     rmb_down = false;
 
 
 
@@ -104,7 +109,6 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
             WtoH = (long double)frame.width / (long double)(frame.height);
             change = true;
             GetWindowRect(window_handle, &rect);
-            //printf("%lf, %lf\n", normalized_x_Z, normalized_y_Z);
         } break;
 
 
@@ -121,7 +125,6 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
             mouse_y = pt.y - rect.top - 32;
             normalized_mouse_x = fractal_center_x + (long double)(mouse_x * 2 - frame.width) * zoom_x;
             normalized_mouse_y = fractal_center_y + (long double)(mouse_y * 2 - frame.height) * -zoom_y;
-            //printf("%lf, %lf\n", normalized_x_Z, normalized_y_Z);
         } break;
 
 
@@ -136,19 +139,16 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
             }
 
             if((int)wParam < 0) {
-                temp = 7000000.0 / -wParam;
+                temp = 7000000.0 / -(float)(int)wParam;
                 zoom /= temp;
                 temp2 = 1.0 - temp;
                 fractal_center_x -= (normalized_mouse_x - fractal_center_x) * temp2;
                 fractal_center_y -= (normalized_mouse_y - fractal_center_y) * temp2;
             }
 
-            //printf("%d\n", wParam);
-
             zoom_x = zoom / (long double)frame.width;
             zoom_y = zoom / (long double)frame.height;
             change = true;
-            //printf("%lf, %lf\n", normalized_x_Z, normalized_y_Z);
         } break;
 
 
@@ -156,9 +156,19 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
         case WM_LBUTTONDOWN: {
             lmb_down = true;
         } break;
-        
+
         case WM_LBUTTONUP: {
             lmb_down = false;
+        } break;
+
+
+
+        case WM_RBUTTONDOWN: {
+            rmb_down = true;
+        } break;
+
+        case WM_RBUTTONUP: {
+            rmb_down = false;
         } break;
 
 
@@ -168,9 +178,21 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
         }
     }
 
+
+
+
     if(lmb_down) {
         julia_C_x = normalized_mouse_x;
         julia_C_y = normalized_mouse_y;
+        change = true;
+    }
+
+    if(rmb_down) {
+        fractal_center_x = 0.0;
+        fractal_center_y = 0.0;
+        zoom = 2.0;
+        zoom_x = zoom / (long double)frame.width;
+        zoom_y = zoom / (long double)frame.height;
         change = true;
     }
 
@@ -184,10 +206,14 @@ LRESULT CALLBACK WindowProcessMessage(HWND window_handle, UINT message, WPARAM w
 
 // set_pixel
 void set_pixel(int x, int y, int r, int g, int b) {
-    if(r > 255) r = 255;
-    if(g > 255) g = 255;
-    if(b > 255) b = 255;
-    if(0 <= x && x < frame.width && 0 <= y && y < frame.height) frame.pixels[y * frame.width + x] = (r << 16) + (g << 8) + b; 
+    r = min(r, 255);
+    r = max(r, 0);
+    g = min(g, 255);
+    g = max(g, 0);
+    b = min(b, 255);
+    b = max(b, 0);
+    if(0 <= x && x < frame.width && 0 <= y && y < frame.height)
+        frame.pixels[y * frame.width + x] = (r << 16) + (g << 8) + b;
 }
 
 
@@ -222,7 +248,7 @@ void fractal_julia() {
                 if(normalized_x_Z_squared + normalized_y_Z_squared > 4.0) {
                     int color = 40 + i * 1.7;
                     set_pixel(x, y, colors_r[i], colors_g[i], colors_b[i]);
-                    //printf("%f, %f, %d\n", normalized_x_Z, normalized_y_Z, i);
+                    // printf("%f, %f, %d\n", normalized_x_Z, normalized_y_Z, i);
                     break;
                 }
 
@@ -240,7 +266,7 @@ void fractal_julia() {
 
 // main()
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nCmdShow) {
-    const wchar_t window_class_name[] = L"My Window Class";
+    const char window_class_name[] = "My Window Class";
     static WNDCLASS window_class = { 0 };
     window_class.lpfnWndProc = WindowProcessMessage;
     window_class.hInstance = hInstance;
@@ -255,7 +281,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
 
     static HWND window_handle;
     window_handle = CreateWindow(window_class_name, 
-                                 "Mandelbrot Set Visualization", 
+                                 "Julia Set Visualization", 
                                  WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                  0, 0, 
                                  700, 700, 
@@ -264,7 +290,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
                                  hInstance, 
                                  NULL);
 
-    if(window_handle == NULL) return -1;
+    if(window_handle == NULL)
+        return -1;
 
 
 
@@ -286,12 +313,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
             ++frame_count;
             fractal_julia();
             change = false;
-        }
-        else
+        } else {
             Sleep(40);
+        }
         
         static MSG message = { 0 };
-        while(PeekMessage(&message, NULL, 0, 0, PM_REMOVE)) { DispatchMessage(&message); }
+        while(PeekMessage(&message, NULL, 0, 0, PM_REMOVE))
+            DispatchMessage(&message);
         
         InvalidateRect(window_handle, NULL, FALSE);
         UpdateWindow(window_handle);
